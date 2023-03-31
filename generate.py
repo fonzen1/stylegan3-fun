@@ -1,3 +1,4 @@
+import moviepy.editor
 import os
 import sys
 from typing import List, Optional, Union, Tuple
@@ -15,7 +16,6 @@ import legacy
 from viz.renderer import Renderer
 
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = 'hide'
-import moviepy.editor
 
 
 # ----------------------------------------------------------------------------
@@ -120,13 +120,15 @@ def generate_images(
     if len(seeds) < 1:
         ctx.fail('Use `--seeds` to specify at least one seed.')
 
-    device = torch.device('cuda') if torch.cuda.is_available() and device == 'cuda' else torch.device('cpu')
+    device = torch.device('cuda') if torch.cuda.is_available(
+    ) and device == 'cuda' else torch.device('cpu')
 
     # Load the network
     G = gen_utils.load_network('G_ema', network_pkl, cfg, device)
 
     if available_layers:
-        click.secho(f'Printing available layers (name, channels and size) for "{network_pkl}"...', fg='blue')
+        click.secho(
+            f'Printing available layers (name, channels and size) for "{network_pkl}"...', fg='blue')
         _ = Renderer().render(G=G, available_layers=available_layers)
         sys.exit(1)
 
@@ -151,10 +153,12 @@ def generate_images(
         ws, ext = gen_utils.get_latent_from_file(projected_w, return_ext=True)
         ws = torch.tensor(ws, device=device)
         assert ws.shape[1:] == (G.num_ws, G.w_dim)
-        n_digits = int(np.log10(len(ws))) + 1  # number of digits for naming the images
+        # number of digits for naming the images
+        n_digits = int(np.log10(len(ws))) + 1
         if ext == '.npy':
             img = gen_utils.w_to_img(G, ws, noise_mode)[0]
-            PIL.Image.fromarray(img, gen_utils.channels_dict[G.synthesis.img_channels]).save(f'{run_dir}/proj.png')
+            PIL.Image.fromarray(img, gen_utils.channels_dict[G.synthesis.img_channels]).save(
+                f'{run_dir}/proj.png')
         else:
             for idx, w in enumerate(ws):
                 img = gen_utils.w_to_img(G, w, noise_mode)[0]
@@ -186,13 +190,16 @@ def generate_images(
         elif isinstance(new_center_value, np.ndarray):
             w_avg = torch.from_numpy(new_center_value).to(device)
         else:
-            ctx.fail('Error: New center has strange format! Only an int (seed) or a file (.npy/.npz) are accepted!')
+            ctx.fail(
+                'Error: New center has strange format! Only an int (seed) or a file (.npy/.npz) are accepted!')
 
     # Generate images.
     images = []
     for seed_idx, seed in enumerate(seeds):
-        print('Generating image for seed %d (%d/%d) ...' % (seed, seed_idx, len(seeds)))
-        dlatent = gen_utils.get_w_from_seed(G, device, seed, truncation_psi=1.0)
+        print('Generating image for seed %d (%d/%d) ...' %
+              (seed, seed_idx, len(seeds)))
+        dlatent = gen_utils.get_w_from_seed(
+            G, device, seed, truncation_psi=1.0)
         # Do truncation trick with center (new or global)
         w = w_avg + (dlatent - w_avg) * truncation_psi
 
@@ -200,9 +207,11 @@ def generate_images(
         # Save the intermediate layer output.
         if layer_name is not None:
             # Sanity check (meh, could be done better)
-            submodule_names = {name: mod for name, mod in G.synthesis.named_modules()}
+            submodule_names = {name: mod for name,
+                               mod in G.synthesis.named_modules()}
             assert layer_name in submodule_names, f'Layer "{layer_name}" not found in the network! Available layers: {", ".join(submodule_names)}'
-            assert True in (save_grayscale, save_rgb, save_rgba), 'You must select to save the image in at least one of the three possible formats! (L, RGB, RGBA)'
+            assert True in (save_grayscale, save_rgb,
+                            save_rgba), 'You must select to save the image in at least one of the three possible formats! (L, RGB, RGBA)'
 
             sel_channels = 3 if save_rgb else (1 if save_grayscale else 4)
             res = Renderer().render(G=G, layer_name=layer_name, dlatent=w, sel_channels=sel_channels,
@@ -224,7 +233,8 @@ def generate_images(
         PIL.Image.fromarray(img[:, :, 0] if img.shape[-1] == 1 else img,
                             img_format).save(os.path.join(run_dir, f'seed{seed}.png'))
         if save_dlatents:
-            np.save(os.path.join(run_dir, f'seed{seed}.npy'), w.unsqueeze(0).cpu().numpy())
+            np.save(os.path.join(
+                run_dir, f'seed{seed}.npy'), w.unsqueeze(0).cpu().numpy())
 
     if save_grid:
         print('Saving image grid...')
@@ -235,10 +245,12 @@ def generate_images(
             grid = gen_utils.create_image_grid(images)
         # The user tells the specific shape of the grid, but one value may be None
         else:
-            grid = gen_utils.create_image_grid(images, (grid_width, grid_height))
+            grid = gen_utils.create_image_grid(
+                images, (grid_width, grid_height))
 
         grid = grid[:, :, 0] if grid.shape[-1] == 1 else grid
-        PIL.Image.fromarray(grid, img_format).save(os.path.join(run_dir, 'grid.png'))
+        PIL.Image.fromarray(grid, img_format).save(
+            os.path.join(run_dir, 'grid.png'))
 
     # Save the configuration used
     ctx.obj = {
@@ -334,7 +346,8 @@ def random_interpolation_video(
         outdir: Union[str, os.PathLike],
         description: str,
         compress: bool,
-        smoothing_sec: Optional[float] = 3.0  # for Gaussian blur; won't be a command-line parameter, change at own risk
+        # for Gaussian blur; won't be a command-line parameter, change at own risk
+        smoothing_sec: Optional[float] = 3.0
 ):
     """
     Generate a random interpolation video using a pretrained network.
@@ -363,13 +376,15 @@ def random_interpolation_video(
 
     # Print the available layers in the model
     if available_layers:
-        click.secho(f'Printing available layers (name, channels and size) for "{network_pkl}"...', fg='blue')
+        click.secho(
+            f'Printing available layers (name, channels and size) for "{network_pkl}"...', fg='blue')
         _ = Renderer().render(G=G, available_layers=available_layers)
         sys.exit(1)
 
     # Sadly, render can only generate one image at a time, so for now we'll just use the first seed
     if layer_name is not None and len(seeds) > 1:
-        print(f'Note: Only one seed is supported for layer extraction, using seed "{seeds[0]}"...')
+        print(
+            f'Note: Only one seed is supported for layer extraction, using seed "{seeds[0]}"...')
         seeds = seeds[:1]
 
     # Stabilize/anchor the latent space
@@ -400,14 +415,16 @@ def random_interpolation_video(
         grid_size = (grid_width, grid_height)
         shape = [num_frames, G.z_dim]  # This is per seed
         # Get the z latents
-        all_latents = np.stack([np.random.RandomState(seed).randn(*shape).astype(np.float32) for seed in seeds], axis=1)
+        all_latents = np.stack([np.random.RandomState(seed).randn(
+            *shape).astype(np.float32) for seed in seeds], axis=1)
 
     # If only one seed is provided, but the user specifies the grid shape:
     elif None not in (grid_width, grid_height) and len(seeds) == 1:
         grid_size = (grid_width, grid_height)
         shape = [num_frames, np.prod(grid_size), G.z_dim]
         # Since we have one seed, we use it to generate all latents
-        all_latents = np.random.RandomState(*seeds).randn(*shape).astype(np.float32)
+        all_latents = np.random.RandomState(
+            *seeds).randn(*shape).astype(np.float32)
 
     # If one or more seeds are provided, and the user also specifies the grid shape:
     elif None not in (grid_width, grid_height) and len(seeds) >= 1:
@@ -419,17 +436,20 @@ def random_interpolation_video(
             diff = num_seeds - available_slots
             click.secho(f'More seeds were provided ({num_seeds}) than available spaces in the grid ({available_slots})',
                         fg='red')
-            click.secho(f'Removing the last {diff} seeds: {seeds[-diff:]}', fg='blue')
+            click.secho(
+                f'Removing the last {diff} seeds: {seeds[-diff:]}', fg='blue')
             seeds = seeds[:available_slots]
         shape = [num_frames, G.z_dim]
-        all_latents = np.stack([np.random.RandomState(seed).randn(*shape).astype(np.float32) for seed in seeds], axis=1)
+        all_latents = np.stack([np.random.RandomState(seed).randn(
+            *shape).astype(np.float32) for seed in seeds], axis=1)
 
     else:
         ctx.fail('Error: wrong combination of arguments! Please provide either a list of seeds, one seed and the grid '
                  'width and height, or more than one seed and the grid width and height')
 
     # Let's smooth out the random latents so that now they form a loop (and are correctly generated in a 512-dim space)
-    all_latents = scipy.ndimage.gaussian_filter(all_latents, sigma=[smoothing_sec * fps, 0, 0], mode='wrap')
+    all_latents = scipy.ndimage.gaussian_filter(
+        all_latents, sigma=[smoothing_sec * fps, 0, 0], mode='wrap')
     all_latents /= np.sqrt(np.mean(np.square(all_latents)))
 
     # Name of the video
@@ -462,7 +482,8 @@ def random_interpolation_video(
         elif isinstance(new_center_value, np.ndarray):
             w_avg = torch.from_numpy(new_center_value).to(device)
         else:
-            ctx.fail('Error: New center has strange format! Only an int (seed) or a file (.npy/.npz) are accepted!')
+            ctx.fail(
+                'Error: New center has strange format! Only an int (seed) or a file (.npy/.npz) are accepted!')
 
     # Auxiliary function for moviepy
     def make_frame(t):
@@ -477,9 +498,11 @@ def random_interpolation_video(
         # Save the intermediate layer output.
         if layer_name is not None:
             # Sanity check (again, could be done better)
-            submodule_names = {name: mod for name, mod in G.synthesis.named_modules()}
+            submodule_names = {name: mod for name,
+                               mod in G.synthesis.named_modules()}
             assert layer_name in submodule_names, f'Layer "{layer_name}" not found in the network! Available layers: {", ".join(submodule_names)}'
-            assert True in (save_grayscale, save_rgb), 'You must select to save the video in at least one of the two possible formats! (L, RGB)'
+            assert True in (
+                save_grayscale, save_rgb), 'You must select to save the video in at least one of the two possible formats! (L, RGB)'
 
             sel_channels = 3 if save_rgb else 1
             res = Renderer().render(G=G, layer_name=layer_name, dlatent=w, sel_channels=sel_channels,
@@ -487,9 +510,12 @@ def random_interpolation_video(
             images = res.image
             images = np.expand_dims(np.array(images), axis=0)
         else:
-            images = gen_utils.w_to_img(G, w, noise_mode)  # Remember, it can only be a single image
+            # Remember, it can only be a single image
+            images = gen_utils.w_to_img(G, w, noise_mode)
             # RGBA -> RGB, if necessary
-            images = images[:, :, :, :3]
+            # images = images[:, :, :, :3]
+            # LA -> L
+            images = images[:, :, 0]
 
         # Generate the grid for this timestamp
         grid = gen_utils.create_image_grid(images, grid_size)
@@ -506,7 +532,8 @@ def random_interpolation_video(
 
     # Change the video parameters (codec, bitrate) if you so desire
     final_video = os.path.join(run_dir, f'{mp4_name}.mp4')
-    videoclip.write_videofile(final_video, fps=fps, codec='libx264', bitrate='16M')
+    videoclip.write_videofile(final_video, fps=fps,
+                              codec='libx264', bitrate='16M')
 
     # Save the configuration used
     new_center = 'w_avg' if new_center is None else new_center
@@ -547,7 +574,8 @@ def random_interpolation_video(
 
     # Compress the video (lower file size, same resolution)
     if compress:
-        gen_utils.compress_video(original_video=final_video, original_video_name=mp4_name, outdir=run_dir, ctx=ctx)
+        gen_utils.compress_video(
+            original_video=final_video, original_video_name=mp4_name, outdir=run_dir, ctx=ctx)
 
 
 # ----------------------------------------------------------------------------
@@ -628,10 +656,12 @@ def circular_video(
     else:
         # It's an int, so use as a seed
         if new_center.isdigit():
-            w_avg = gen_utils.get_w_from_seed(G, device, int(new_center), truncation_psi=1.0).to(device)
+            w_avg = gen_utils.get_w_from_seed(G, device, int(
+                new_center), truncation_psi=1.0).to(device)
         # It's a file, so load it
         elif os.path.isfile(new_center):
-            w_avg = gen_utils.get_latent_from_file(new_center, return_ext=False)
+            w_avg = gen_utils.get_latent_from_file(
+                new_center, return_ext=False)
             w_avg = torch.from_numpy(w_avg).to(device)
         # It's a directory, so get all latents inside it (including subdirectories, so be careful)
         elif os.path.isdir(new_center):
@@ -644,10 +674,12 @@ def circular_video(
         # Some sanity checks
         num_centers = len(w_avg)
         if num_centers == 0:
-            raise ctx.fail('No centers were found! If files, makes sure they are .npy or .npz files.')
+            raise ctx.fail(
+                'No centers were found! If files, makes sure they are .npy or .npz files.')
         # Just one is provided, so this will be a sort of 'global' center
         elif num_centers == 1:
-            print(f'Using only one center (if more than one is desired, provide a directory with all of them)')
+            print(
+                f'Using only one center (if more than one is desired, provide a directory with all of them)')
         elif num_centers != grid_height * grid_width:
             message = f"Number of centers ({num_centers}) doesn't match the grid size ({grid_height}x{grid_width})"
             raise ctx.fail(message)
@@ -672,22 +704,26 @@ def circular_video(
     # Choose two random dims on which to plot the circles (from 0 to G.z_dim-1),
     # one pair for each element of the grid (2*grid_width*grid_height in total)
     try:
-        z1, z2 = np.split(random_state.choice(G.z_dim, 2 * np.prod(grid_size), replace=False), 2)
+        z1, z2 = np.split(random_state.choice(
+            G.z_dim, 2 * np.prod(grid_size), replace=False), 2)
     except ValueError:
         # Extreme case: G.z_dim < 2 * grid_width * grid_height (low G.
-        z1, z2 = np.split(random_state.choice(G.z_dim, 2 * np.prod(grid_size), replace=True), 2)
+        z1, z2 = np.split(random_state.choice(
+            G.z_dim, 2 * np.prod(grid_size), replace=True), 2)
 
     # We partition the circle in equal strides w.r.t. num_frames
-    get_angles = lambda num_frames: np.linspace(0, 2*np.pi, num_frames)
+    def get_angles(num_frames): return np.linspace(0, 2*np.pi, num_frames)
     angles = get_angles(num_frames=num_frames)
 
     # Basic Polar to Cartesian transformation
-    polar_to_cartesian = lambda radius, theta: (radius * np.cos(theta), radius * np.sin(theta))
+    def polar_to_cartesian(radius, theta): return (
+        radius * np.cos(theta), radius * np.sin(theta))
     # Using a fixed radius (this value is irrelevant), we generate the circles in each chosen grid
     Z1, Z2 = polar_to_cartesian(radius=5.0, theta=angles)
 
     # Our latents will be comprising mostly of zeros
-    all_latents = np.zeros([num_frames, np.prod(grid_size), G.z_dim]).astype(np.float32)
+    all_latents = np.zeros([num_frames, np.prod(
+        grid_size), G.z_dim]).astype(np.float32)
     # Obtain all the frames belonging to the specific box in the grid,
     # replacing the zero values with the circle perimeter values
     for box in range(np.prod(grid_size)):
@@ -703,24 +739,27 @@ def circular_video(
             new_w_avg = gen_utils.get_w_from_seed(G, device, new_w_avg,
                                                   truncation_psi=1.0)  # We want the pure dlatent
         elif isinstance(new_w_avg, np.ndarray):
-            new_w_avg = torch.from_numpy(new_w_avg).to(device)  # [1, num_ws, w_dim]
+            new_w_avg = torch.from_numpy(new_w_avg).to(
+                device)  # [1, num_ws, w_dim]
         else:
-            ctx.fail('Error: New center has strange format! Only an int (seed) or a file (.npy/.npz) are accepted!')
+            ctx.fail(
+                'Error: New center has strange format! Only an int (seed) or a file (.npy/.npz) are accepted!')
 
     # Auxiliary function for moviepy
     def make_frame(t):
         frame_idx = int(np.clip(np.round(t * fps), 0, num_frames - 1))
         latents = torch.from_numpy(all_latents[frame_idx]).to(device)
         # Get the images with the respective label
-        dlatents = gen_utils.z_to_dlatent(G, latents, label, truncation_psi=1.0)  # Get the pure dlatent
+        dlatents = gen_utils.z_to_dlatent(
+            G, latents, label, truncation_psi=1.0)  # Get the pure dlatent
         # Do truncation trick
         # For the truncation trick (supersedes any value chosen for truncation_psi)
         if None not in (truncation_psi_start, truncation_psi_end):
             # For both, truncation psi will have the general form of a sinusoid: psi = (cos(t) + alpha) / beta
             if global_pulsation_trick:
                 tr = gen_utils.global_pulsate_psi(psi_start=truncation_psi_start,
-                                                              psi_end=truncation_psi_end,
-                                                              n_steps=num_frames)
+                                                  psi_end=truncation_psi_end,
+                                                  n_steps=num_frames)
             elif wave_pulsation_trick:
                 tr = gen_utils.wave_pulse_truncation_psi(psi_start=truncation_psi_start,
                                                          psi_end=truncation_psi_end,
@@ -758,7 +797,8 @@ def circular_video(
 
     # Change the video parameters (codec, bitrate) if you so desire
     final_video = os.path.join(run_dir, f'{mp4_name}.mp4')
-    videoclip.write_videofile(final_video, fps=fps, codec='libx264', bitrate='16M')
+    videoclip.write_videofile(final_video, fps=fps,
+                              codec='libx264', bitrate='16M')
 
     # Save the configuration used
     new_center = 'w_avg' if new_center is None else new_center
@@ -785,7 +825,8 @@ def circular_video(
 
     # Compress the video (lower file size, same resolution)
     if compress:
-        gen_utils.compress_video(original_video=final_video, original_video_name=mp4_name, outdir=run_dir, ctx=ctx)
+        gen_utils.compress_video(
+            original_video=final_video, original_video_name=mp4_name, outdir=run_dir, ctx=ctx)
 
 # ----------------------------------------------------------------------------
 
