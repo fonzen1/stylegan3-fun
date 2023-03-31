@@ -17,7 +17,7 @@ import legacy
 # ----------------------------------------------------------------------------
 
 
-channels_dict = {1: 'L', 3: 'RGB', 4: 'RGBA'}
+channels_dict = {1: 'L', 2: 'LA', 3: 'RGB', 4: 'RGBA'}
 
 
 # ----------------------------------------------------------------------------
@@ -58,7 +58,8 @@ def create_image_grid(images: np.ndarray, grid_size: Optional[Tuple[int, int]] =
     # Sanity check
     assert grid_w * grid_h >= num, 'Number of rows and columns in the grid must be greater than the number of images!'
     # Get the grid
-    grid = np.zeros([grid_h * img_h, grid_w * img_h] + list(images.shape[-1:]), dtype=images.dtype)
+    grid = np.zeros([grid_h * img_h, grid_w * img_h] +
+                    list(images.shape[-1:]), dtype=images.dtype)
     # Paste each image in the grid
     for idx in range(num):
         x = (idx % grid_w) * img_w
@@ -155,14 +156,16 @@ def parse_new_center(s: str) -> Tuple[str, Union[int, Tuple[np.ndarray, Optional
         new_center = int(s)  # it's a seed
         return s, new_center
     except ValueError:
-        new_center = get_latent_from_file(s, return_ext=False)  # it's a projected dlatent
+        new_center = get_latent_from_file(
+            s, return_ext=False)  # it's a projected dlatent
         return s, new_center
 
 
 def parse_all_projected_dlatents(s: str) -> List[torch.Tensor]:
     """Get all the dlatents (.npy/.npz files) in a given directory"""
     # Get all the files in the directory and subdirectories
-    files = [os.path.join(dp, f) for dp, dn, fn in os.walk(os.path.expanduser(s)) for f in fn]
+    files = [os.path.join(dp, f) for dp, dn, fn in os.walk(
+        os.path.expanduser(s)) for f in fn]
     # Filter only the .npy or .npz files
     files = [f for f in files if f.endswith('.npy') or f.endswith('.npz')]
     # Sort them by name, but only according to the last digits in the name (in case there's an error before)
@@ -179,11 +182,13 @@ def load_network(name: str, network_pkl: Union[str, os.PathLike], cfg: Optional[
     """Load and return the discriminator D from a trained network."""
     # Define the model
     if cfg is not None:
-        assert network_pkl in resume_specs[cfg], f'This model is not available for config {cfg}!'
+        assert network_pkl in resume_specs[
+            cfg], f'This model is not available for config {cfg}!'
         network_pkl = resume_specs[cfg][network_pkl]
     print(f'Loading networks from "{network_pkl}"...')
     with dnnlib.util.open_url(network_pkl) as f:
-        net = legacy.load_network_pkl(f)[name].eval().requires_grad_(False).to(device)  # type: ignore
+        net = legacy.load_network_pkl(f)[name].eval().requires_grad_(
+            False).to(device)  # type: ignore
 
     return net
 
@@ -195,10 +200,12 @@ def parse_class(G, class_idx: int, ctx: click.Context) -> Union[int, type(None)]
         return None
     # Conditional model, so class must be specified by user
     if class_idx is None:
-        ctx.fail('Must specify class label with --class when using a conditional network!')
+        ctx.fail(
+            'Must specify class label with --class when using a conditional network!')
     if class_idx not in range(G.c_dim):
         ctx.fail(f'Your class label can be at most {G.c_dim - 1}!')
-    print(f'Using class {class_idx} (available labels: range({G.c_dim - 1})...)')
+    print(
+        f'Using class {class_idx} (available labels: range({G.c_dim - 1})...)')
     return class_idx
 
 
@@ -217,7 +224,8 @@ def save_video_from_images(run_dir: str,
     try:
         import ffmpeg
     except ImportError:
-        raise ImportError('ffmpeg-python not found! Install it via "pip install ffmpeg-python"')
+        raise ImportError(
+            'ffmpeg-python not found! Install it via "pip install ffmpeg-python"')
     # Get the ffmpeg command for the current OS (not tested in MacOS!)
     if os.name == 'nt':
         ffmpeg_command = r'C:\\Ffmpeg\\bin\\ffmpeg.exe'
@@ -225,19 +233,23 @@ def save_video_from_images(run_dir: str,
         # Get where is the ffmpeg command via `whereis ffmpeg` in the terminal
         ffmpeg_command = os.popen('whereis ffmpeg').read().split(' ')[1:]
         # Remove any ffprobe and ffplay commands
-        ffmpeg_command = [c for c in ffmpeg_command if 'ffprobe' not in c and 'ffplay' not in c]
+        ffmpeg_command = [
+            c for c in ffmpeg_command if 'ffprobe' not in c and 'ffplay' not in c]
         # If there are more, just select the first one and remove the newline character
         ffmpeg_command = ffmpeg_command[0].replace('\n', '')
 
     stream = ffmpeg.input(os.path.join(run_dir, image_names), framerate=fps)
-    stream = ffmpeg.output(stream, os.path.join(run_dir, f'{video_name}.mp4'), crf=crf, pix_fmt=pix_fmt)
-    ffmpeg.run(stream, capture_stdout=True, capture_stderr=True, cmd=ffmpeg_command)
+    stream = ffmpeg.output(stream, os.path.join(
+        run_dir, f'{video_name}.mp4'), crf=crf, pix_fmt=pix_fmt)
+    ffmpeg.run(stream, capture_stdout=True,
+               capture_stderr=True, cmd=ffmpeg_command)
 
     # Save the reversed video apart from the original one, so the user can compare both
     if reverse_video:
         stream = ffmpeg.input(os.path.join(run_dir, f'{video_name}.mp4'))
         stream = stream.video.filter('reverse')
-        stream = ffmpeg.output(stream, os.path.join(run_dir, f'{video_name}_reversed.mp4'), crf=crf, pix_fmt=pix_fmt)
+        stream = ffmpeg.output(stream, os.path.join(
+            run_dir, f'{video_name}_reversed.mp4'), crf=crf, pix_fmt=pix_fmt)
         ffmpeg.run(stream, capture_stdout=True, capture_stderr=True)  # ibidem
 
 
@@ -256,8 +268,10 @@ def compress_video(
         ctx.fail('Missing ffmpeg! Install it via "pip install ffmpeg-python"')
 
     print('Compressing the video...')
-    resized_video_name = os.path.join(outdir, f'{original_video_name}-compressed.mp4')
-    ffmpeg.input(original_video).output(resized_video_name).run(capture_stdout=True, capture_stderr=True)
+    resized_video_name = os.path.join(
+        outdir, f'{original_video_name}-compressed.mp4')
+    ffmpeg.input(original_video).output(resized_video_name).run(
+        capture_stdout=True, capture_stderr=True)
     print('Success!')
 
 
@@ -352,10 +366,12 @@ def interpolate(
         # Smooth out the interpolation with a polynomial of order 3 (cubic function f)
         # Constructed f by setting f'(0) = f'(1) = 0, and f(0) = 0, f(1) = 1 => f(t) = -2t^3+3t^2 = t^2 (3-2t)
         # NOTE: I've merely rediscovered the Smoothstep function S_1(x): https://en.wikipedia.org/wiki/Smoothstep
-        t_array = t_array ** 2 * (3 - 2 * t_array)  # One line thanks to NumPy arrays
+        # One line thanks to NumPy arrays
+        t_array = t_array ** 2 * (3 - 2 * t_array)
     # TODO: this might be possible to optimize by using the fact they're numpy arrays, but haven't found a nice way yet
     funcs_dict = {'linear': lerp, 'spherical': slerp}
-    vectors = np.array([funcs_dict[interp_type](t, v0, v1) for t in t_array], dtype=np.float32)
+    vectors = np.array([funcs_dict[interp_type](t, v0, v1)
+                       for t in t_array], dtype=np.float32)
     return vectors
 
 
@@ -374,7 +390,8 @@ def double_slowdown(latents: np.ndarray, duration: float, frames: int) -> Tuple[
     # Interpolate in the odd frames
     for i in range(1, len(z), 2):
         # slerp between (t=0.5) even frames; for the last frame, we loop to the first one (z[0])
-        z[i] = slerp(0.5, z[i - 1], z[i + 1]) if i != len(z) - 1 else slerp(0.5, z[0], z[i - 1])
+        z[i] = slerp(0.5, z[i - 1], z[i + 1]) if i != len(z) - \
+            1 else slerp(0.5, z[0], z[i - 1])
     # TODO: we could change this to any slowdown: slerp(1/slowdown, ...), and we return z, slowdown * duration, ...
     # Return the new latents, and the respective new duration and number of frames
     return z, 2 * duration, 2 * frames
@@ -514,7 +531,8 @@ def anchor_latent_space(G) -> None:
     if hasattr(G.synthesis, 'input'):
         # Unconditional models differ by a bit
         if G.c_dim == 0:
-            shift = G.synthesis.input.affine(G.mapping.w_avg.unsqueeze(0)).squeeze(0)
+            shift = G.synthesis.input.affine(
+                G.mapping.w_avg.unsqueeze(0)).squeeze(0)
         else:
             shift = G.synthesis.input.affine(G.mapping.w_avg).mean(0)
         G.synthesis.input.affine.bias.data.add_(shift)
@@ -539,86 +557,101 @@ def use_cpu(G) -> None:
 
 # ----------------------------------------------------------------------------
 
-resume_specs = {
-        # For StyleGAN2/ADA models; --cfg=stylegan2
-        'stylegan2': {
-            # Official NVIDIA models
-            'ffhq256':       'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan2/versions/1/files/stylegan2-ffhq-256x256.pkl',
-            'ffhqu256':      'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan2/versions/1/files/stylegan2-ffhqu-256x256.pkl',
-            'ffhq512':       'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan2/versions/1/files/stylegan2-ffhq-512x512.pkl',
-            'ffhq1024':      'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan2/versions/1/files/stylegan2-ffhq-1024x1024.pkl',
-            'ffhqu1024':     'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan2/versions/1/files/stylegan2-ffhqu-1024x1024.pkl',
-            'celebahq256':   'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan2/versions/1/files/stylegan2-celebahq-256x256.pkl',
-            'lsundog256':    'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan2/versions/1/files/stylegan2-lsundog-256x256.pkl',
-            'afhqcat512':    'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan2/versions/1/files/stylegan2-afhqcat-512x512.pkl',
-            'afhqdog512':    'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan2/versions/1/files/stylegan2-afhqdog-512x512.pkl',
-            'afhqwild512':   'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan2/versions/1/files/stylegan2-afhqwild-512x512.pkl',
-            'afhq512':       'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan2/versions/1/files/stylegan2-afhqv2-512x512.pkl',
-            'brecahad512':   'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan2/versions/1/files/stylegan2-brecahad-512x512.pkl',
-            'cifar10':       'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan2/versions/1/files/stylegan2-cifar10-32x32.pkl',
-            'metfaces1024':  'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan2/versions/1/files/stylegan2-metfaces-1024x1024.pkl',
-            'metfacesu1024': 'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan2/versions/1/files/stylegan2-metfacesu-1024x1024.pkl',
-            # Other configs are available at: https://nvlabs-fi-cdn.nvidia.com/stylegan2/networks/, but I will list here the config-f only
-            'lsuncar512':    'https://nvlabs-fi-cdn.nvidia.com/stylegan2/networks/stylegan2-car-config-f.pkl',  # config-f
-            'lsuncat256':    'https://nvlabs-fi-cdn.nvidia.com/stylegan2/networks/stylegan2-cat-config-f.pkl',  # config-f
-            'lsunchurch256': 'https://nvlabs-fi-cdn.nvidia.com/stylegan2/networks/stylegan2-church-config-f.pkl',  # config-f
-            'lsunhorse256':  'https://nvlabs-fi-cdn.nvidia.com/stylegan2/networks/stylegan2-horse-config-f.pkl',  # config-f
-            # Community models. More can be found at: https://github.com/justinpinkney/awesome-pretrained-stylegan2 by @justinpinkney, but weren't added here
-            'minecraft1024': 'https://github.com/jeffheaton/pretrained-gan-minecraft/releases/download/v1/minecraft-gan-2020-12-22.pkl',  # Thanks to @jeffheaton
-            'imagenet512':   'https://battle.shawwn.com/sdc/stylegan2-imagenet-512/model.ckpt-533504.pkl',  # Thanks to @shawwn
-            'wikiart1024-C': 'https://archive.org/download/wikiart-stylegan2-conditional-model/WikiArt5.pkl',  # Thanks to @pbaylies; conditional (167 classes in total: --class=0 to 166)
-            'wikiart1024-U': 'https://archive.org/download/wikiart-stylegan2-conditional-model/WikiArt_Uncond2.pkl',  # Thanks to @pbaylies; unconditional
-            'maps1024':      'https://archive.org/download/mapdreamer/mapdreamer.pkl',  # Thanks to @tjukanov
-            'fursona512':    'https://thisfursonadoesnotexist.com/model/network-e621-r-512-3194880.pkl',  # Thanks to @arfafax
-            'mlpony512':     'https://thisponydoesnotexist.net/model/network-ponies-1024-151552.pkl',  # Thanks to @arfafax
-            'lhq1024':       'https://huggingface.co/justinpinkney/lhq-sg2-1024/resolve/main/lhq-sg2-1024.pkl',  # Thanks to @justinpinkney
-            # Deceive-D/APA models (ignoring the faces models): https://github.com/EndlessSora/DeceiveD
-            'afhqcat256':    'https://drive.google.com/u/0/uc?export=download&confirm=zFoN&id=1P9ouHIK-W8JTb6bvecfBe4c_3w6gmMJK',
-            'anime256':      'https://drive.google.com/u/0/uc?export=download&confirm=6Uie&id=1EWOdieqELYmd2xRxUR4gnx7G10YI5dyP',
-            'cub256':        'https://drive.google.com/u/0/uc?export=download&confirm=KwZS&id=1J0qactT55ofAvzddDE_xnJEY8s3vbo1_',
-            # Self-Distilled StyleGAN (full body representation of each class): https://github.com/self-distilled-stylegan/self-distilled-internet-photos
-            'sddogs1024':    'https://storage.googleapis.com/self-distilled-stylegan/dogs_1024_pytorch.pkl',
-            'sdelephant512': 'https://storage.googleapis.com/self-distilled-stylegan/elephants_512_pytorch.pkl',
-            'sdhorses256':   'https://storage.googleapis.com/self-distilled-stylegan/horses_256_pytorch.pkl',
-            'sdbicycles256': 'https://storage.googleapis.com/self-distilled-stylegan/bicycles_256_pytorch.pkl',
-            'sdlions512':    'https://storage.googleapis.com/self-distilled-stylegan/lions_512_pytorch.pkl',
-            'sdgiraffes512': 'https://storage.googleapis.com/self-distilled-stylegan/giraffes_512_pytorch.pkl',
-            'sdparrots512':  'https://storage.googleapis.com/self-distilled-stylegan/parrots_512_pytorch.pkl'
 
-        },
-        # For StyleGAN2 extended (--cfg=styelgan2-ext)
-        'stylegan2-ext': {
-            'anime512': 'https://drive.google.com/u/0/uc?export=download&confirm=zFoN&id=1A-E_E32WAtTHRlOzjhhYhyyBDXLJN9_H'  # Thanks to @aydao
-        },
-        # For StyleGAN3 config-r models (--cfg=stylegan3-r)
-        'stylegan3-r': {
-            # Official NVIDIA models
-            'afhq512':       'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan3/versions/1/files/stylegan3-r-afhqv2-512x512.pkl',
-            'ffhq1024':      'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan3/versions/1/files/stylegan3-r-ffhq-1024x1024.pkl',
-            'ffhqu1024':     'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan3/versions/1/files/stylegan3-r-ffhqu-1024x1024.pkl',
-            'ffhqu256':      'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan3/versions/1/files/stylegan3-r-ffhqu-256x256.pkl',
-            'metfaces1024':  'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan3/versions/1/files/stylegan3-r-metfaces-1024x1024.pkl',
-            'metfacesu1024': 'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan3/versions/1/files/stylegan3-r-metfacesu-1024x1024.pkl',
-        },
-        # For StyleGAN3 config-t models (--cfg=stylegan3-t)
-        'stylegan3-t': {
-            # Official NVIDIA models
-            'afhq512':       'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan3/versions/1/files/stylegan3-t-afhqv2-512x512.pkl',
-            'ffhq1024':      'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan3/versions/1/files/stylegan3-t-ffhq-1024x1024.pkl',
-            'ffhqu1024':     'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan3/versions/1/files/stylegan3-t-ffhqu-1024x1024.pkl',
-            'ffhqu256':      'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan3/versions/1/files/stylegan3-t-ffhqu-256x256.pkl',
-            'metfaces1024':  'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan3/versions/1/files/stylegan3-t-metfaces-1024x1024.pkl',
-            'metfacesu1024': 'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan3/versions/1/files/stylegan3-t-metfacesu-1024x1024.pkl',
-            # Community models, found in: https://github.com/justinpinkney/awesome-pretrained-stylegan3 by @justinpinkney
-            'landscapes256': 'https://drive.google.com/u/0/uc?export=download&confirm=eJHe&id=14UGDDOusZ9TMb-pOrF0PAjMGVWLSAii1',  # Thanks to @justinpinkney
-            'wikiart1024':   'https://drive.google.com/u/0/uc?export=download&confirm=2tz5&id=18MOpwTMJsl_Z17q-wQVnaRLCUFZYSNkj',  # Thanks to @justinpinkney
-            # -> Wombo Dream-based models found in: https://github.com/edstoica/lucid_stylegan3_datasets_models by @edstoica; TODO: more to come, update the list as they are released!
-            'mechfuture256': 'https://www.dropbox.com/s/v2oie53cz62ozvu/network-snapshot-000029.pkl?dl=1',  # Thanks to @edstoica; 29kimg tick
-            'vivflowers256': 'https://www.dropbox.com/s/o33lhgnk91hstvx/network-snapshot-000069.pkl?dl=1',  # Thanks to @edstoica; 68kimg tick
-            'alienglass256': 'https://www.dropbox.com/s/gur14k0e7kspguy/network-snapshot-000038.pkl?dl=1',  # Thanks to @edstoica; 38kimg tick
-            'scificity256': 'https://www.dropbox.com/s/1kfsmlct4mriphc/network-snapshot-000210.pkl?dl=1',  # Thanks to @edstoica; 210kimg tick
-            'scifiship256': 'https://www.dropbox.com/s/02br3mjkma1hubc/network-snapshot-000162.pkl?dl=1',  # Thanks to @edstoica; 168kimg tick
-        }
+resume_specs = {
+    # For StyleGAN2/ADA models; --cfg=stylegan2
+    'stylegan2': {
+        # Official NVIDIA models
+        'ffhq256':       'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan2/versions/1/files/stylegan2-ffhq-256x256.pkl',
+        'ffhqu256':      'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan2/versions/1/files/stylegan2-ffhqu-256x256.pkl',
+        'ffhq512':       'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan2/versions/1/files/stylegan2-ffhq-512x512.pkl',
+        'ffhq1024':      'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan2/versions/1/files/stylegan2-ffhq-1024x1024.pkl',
+        'ffhqu1024':     'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan2/versions/1/files/stylegan2-ffhqu-1024x1024.pkl',
+        'celebahq256':   'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan2/versions/1/files/stylegan2-celebahq-256x256.pkl',
+        'lsundog256':    'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan2/versions/1/files/stylegan2-lsundog-256x256.pkl',
+        'afhqcat512':    'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan2/versions/1/files/stylegan2-afhqcat-512x512.pkl',
+        'afhqdog512':    'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan2/versions/1/files/stylegan2-afhqdog-512x512.pkl',
+        'afhqwild512':   'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan2/versions/1/files/stylegan2-afhqwild-512x512.pkl',
+        'afhq512':       'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan2/versions/1/files/stylegan2-afhqv2-512x512.pkl',
+        'brecahad512':   'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan2/versions/1/files/stylegan2-brecahad-512x512.pkl',
+        'cifar10':       'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan2/versions/1/files/stylegan2-cifar10-32x32.pkl',
+        'metfaces1024':  'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan2/versions/1/files/stylegan2-metfaces-1024x1024.pkl',
+        'metfacesu1024': 'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan2/versions/1/files/stylegan2-metfacesu-1024x1024.pkl',
+        # Other configs are available at: https://nvlabs-fi-cdn.nvidia.com/stylegan2/networks/, but I will list here the config-f only
+        'lsuncar512':    'https://nvlabs-fi-cdn.nvidia.com/stylegan2/networks/stylegan2-car-config-f.pkl',  # config-f
+        'lsuncat256':    'https://nvlabs-fi-cdn.nvidia.com/stylegan2/networks/stylegan2-cat-config-f.pkl',  # config-f
+        'lsunchurch256': 'https://nvlabs-fi-cdn.nvidia.com/stylegan2/networks/stylegan2-church-config-f.pkl',  # config-f
+        'lsunhorse256':  'https://nvlabs-fi-cdn.nvidia.com/stylegan2/networks/stylegan2-horse-config-f.pkl',  # config-f
+        # Community models. More can be found at: https://github.com/justinpinkney/awesome-pretrained-stylegan2 by @justinpinkney, but weren't added here
+        'minecraft1024': 'https://github.com/jeffheaton/pretrained-gan-minecraft/releases/download/v1/minecraft-gan-2020-12-22.pkl',  # Thanks to @jeffheaton
+        # Thanks to @shawwn
+        'imagenet512':   'https://battle.shawwn.com/sdc/stylegan2-imagenet-512/model.ckpt-533504.pkl',
+        # Thanks to @pbaylies; conditional (167 classes in total: --class=0 to 166)
+        'wikiart1024-C': 'https://archive.org/download/wikiart-stylegan2-conditional-model/WikiArt5.pkl',
+        # Thanks to @pbaylies; unconditional
+        'wikiart1024-U': 'https://archive.org/download/wikiart-stylegan2-conditional-model/WikiArt_Uncond2.pkl',
+        # Thanks to @tjukanov
+        'maps1024':      'https://archive.org/download/mapdreamer/mapdreamer.pkl',
+        # Thanks to @arfafax
+        'fursona512':    'https://thisfursonadoesnotexist.com/model/network-e621-r-512-3194880.pkl',
+        # Thanks to @arfafax
+        'mlpony512':     'https://thisponydoesnotexist.net/model/network-ponies-1024-151552.pkl',
+        # Thanks to @justinpinkney
+        'lhq1024':       'https://huggingface.co/justinpinkney/lhq-sg2-1024/resolve/main/lhq-sg2-1024.pkl',
+        # Deceive-D/APA models (ignoring the faces models): https://github.com/EndlessSora/DeceiveD
+        'afhqcat256':    'https://drive.google.com/u/0/uc?export=download&confirm=zFoN&id=1P9ouHIK-W8JTb6bvecfBe4c_3w6gmMJK',
+        'anime256':      'https://drive.google.com/u/0/uc?export=download&confirm=6Uie&id=1EWOdieqELYmd2xRxUR4gnx7G10YI5dyP',
+        'cub256':        'https://drive.google.com/u/0/uc?export=download&confirm=KwZS&id=1J0qactT55ofAvzddDE_xnJEY8s3vbo1_',
+        # Self-Distilled StyleGAN (full body representation of each class): https://github.com/self-distilled-stylegan/self-distilled-internet-photos
+        'sddogs1024':    'https://storage.googleapis.com/self-distilled-stylegan/dogs_1024_pytorch.pkl',
+        'sdelephant512': 'https://storage.googleapis.com/self-distilled-stylegan/elephants_512_pytorch.pkl',
+        'sdhorses256':   'https://storage.googleapis.com/self-distilled-stylegan/horses_256_pytorch.pkl',
+        'sdbicycles256': 'https://storage.googleapis.com/self-distilled-stylegan/bicycles_256_pytorch.pkl',
+        'sdlions512':    'https://storage.googleapis.com/self-distilled-stylegan/lions_512_pytorch.pkl',
+        'sdgiraffes512': 'https://storage.googleapis.com/self-distilled-stylegan/giraffes_512_pytorch.pkl',
+        'sdparrots512':  'https://storage.googleapis.com/self-distilled-stylegan/parrots_512_pytorch.pkl'
+
+    },
+    # For StyleGAN2 extended (--cfg=styelgan2-ext)
+    'stylegan2-ext': {
+        'anime512': 'https://drive.google.com/u/0/uc?export=download&confirm=zFoN&id=1A-E_E32WAtTHRlOzjhhYhyyBDXLJN9_H'  # Thanks to @aydao
+    },
+    # For StyleGAN3 config-r models (--cfg=stylegan3-r)
+    'stylegan3-r': {
+        # Official NVIDIA models
+        'afhq512':       'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan3/versions/1/files/stylegan3-r-afhqv2-512x512.pkl',
+        'ffhq1024':      'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan3/versions/1/files/stylegan3-r-ffhq-1024x1024.pkl',
+        'ffhqu1024':     'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan3/versions/1/files/stylegan3-r-ffhqu-1024x1024.pkl',
+        'ffhqu256':      'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan3/versions/1/files/stylegan3-r-ffhqu-256x256.pkl',
+        'metfaces1024':  'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan3/versions/1/files/stylegan3-r-metfaces-1024x1024.pkl',
+        'metfacesu1024': 'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan3/versions/1/files/stylegan3-r-metfacesu-1024x1024.pkl',
+    },
+    # For StyleGAN3 config-t models (--cfg=stylegan3-t)
+    'stylegan3-t': {
+        # Official NVIDIA models
+        'afhq512':       'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan3/versions/1/files/stylegan3-t-afhqv2-512x512.pkl',
+        'ffhq1024':      'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan3/versions/1/files/stylegan3-t-ffhq-1024x1024.pkl',
+        'ffhqu1024':     'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan3/versions/1/files/stylegan3-t-ffhqu-1024x1024.pkl',
+        'ffhqu256':      'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan3/versions/1/files/stylegan3-t-ffhqu-256x256.pkl',
+        'metfaces1024':  'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan3/versions/1/files/stylegan3-t-metfaces-1024x1024.pkl',
+        'metfacesu1024': 'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan3/versions/1/files/stylegan3-t-metfacesu-1024x1024.pkl',
+        # Community models, found in: https://github.com/justinpinkney/awesome-pretrained-stylegan3 by @justinpinkney
+        # Thanks to @justinpinkney
+        'landscapes256': 'https://drive.google.com/u/0/uc?export=download&confirm=eJHe&id=14UGDDOusZ9TMb-pOrF0PAjMGVWLSAii1',
+        # Thanks to @justinpinkney
+        'wikiart1024':   'https://drive.google.com/u/0/uc?export=download&confirm=2tz5&id=18MOpwTMJsl_Z17q-wQVnaRLCUFZYSNkj',
+        # -> Wombo Dream-based models found in: https://github.com/edstoica/lucid_stylegan3_datasets_models by @edstoica; TODO: more to come, update the list as they are released!
+        # Thanks to @edstoica; 29kimg tick
+        'mechfuture256': 'https://www.dropbox.com/s/v2oie53cz62ozvu/network-snapshot-000029.pkl?dl=1',
+        # Thanks to @edstoica; 68kimg tick
+        'vivflowers256': 'https://www.dropbox.com/s/o33lhgnk91hstvx/network-snapshot-000069.pkl?dl=1',
+        # Thanks to @edstoica; 38kimg tick
+        'alienglass256': 'https://www.dropbox.com/s/gur14k0e7kspguy/network-snapshot-000038.pkl?dl=1',
+        # Thanks to @edstoica; 210kimg tick
+        'scificity256': 'https://www.dropbox.com/s/1kfsmlct4mriphc/network-snapshot-000210.pkl?dl=1',
+        # Thanks to @edstoica; 168kimg tick
+        'scifiship256': 'https://www.dropbox.com/s/02br3mjkma1hubc/network-snapshot-000162.pkl?dl=1',
+    }
 }
 
 # ----------------------------------------------------------------------------
@@ -637,22 +670,27 @@ def w_to_img(G, dlatents: Union[List[torch.Tensor], torch.Tensor],
               truncation trick
     """
     # If we have a single dlatent, we need to add a batch dimension
-    assert isinstance(dlatents, torch.Tensor), f'dlatents should be a torch.Tensor!: "{type(dlatents)}"'
+    assert isinstance(
+        dlatents, torch.Tensor), f'dlatents should be a torch.Tensor!: "{type(dlatents)}"'
     if len(dlatents.shape) == 2:
-        dlatents = dlatents.unsqueeze(0)  # An individual dlatent => [1, G.mapping.num_ws, G.mapping.w_dim]
+        # An individual dlatent => [1, G.mapping.num_ws, G.mapping.w_dim]
+        dlatents = dlatents.unsqueeze(0)
     if new_w_avg is not None:
         new_w_avg = new_w_avg.to(next(G.parameters()).device)
         dlatents = (dlatents - new_w_avg) * (1 - truncation_psi) + new_w_avg
     synth_image = G.synthesis(dlatents, noise_mode=noise_mode)
     synth_image = (synth_image + 1) * 255/2  # [-1.0, 1.0] -> [0.0, 255.0]
-    synth_image = synth_image.permute(0, 2, 3, 1).clamp(0, 255).to(torch.uint8).cpu().numpy()  # NCWH => NWHC
+    synth_image = synth_image.permute(0, 2, 3, 1).clamp(
+        0, 255).to(torch.uint8).cpu().numpy()  # NCWH => NWHC
     return synth_image
 
 
 def z_to_dlatent(G, latents: torch.Tensor, label: torch.Tensor, truncation_psi: float = 1.0) -> torch.Tensor:
     """Get the dlatent from the given latent, class label and truncation psi"""
-    assert isinstance(latents, torch.Tensor), f'latents should be a torch.Tensor!: "{type(latents)}"'
-    assert isinstance(label, torch.Tensor), f'label should be a torch.Tensor!: "{type(label)}"'
+    assert isinstance(
+        latents, torch.Tensor), f'latents should be a torch.Tensor!: "{type(latents)}"'
+    assert isinstance(
+        label, torch.Tensor), f'label should be a torch.Tensor!: "{type(label)}"'
     if len(latents.shape) == 1:
         latents = latents.unsqueeze(0)  # An individual latent => [1, G.z_dim]
     dlatents = G.mapping(z=latents, c=label, truncation_psi=truncation_psi)
@@ -665,9 +703,11 @@ def z_to_img(G, latents: torch.Tensor, label: torch.Tensor, truncation_psi: floa
     Get an image/np.ndarray from a latent Z using G, the label, truncation_psi, and noise_mode. The shape
     of the output image/np.ndarray will be [len(latents), G.img_resolution, G.img_resolution, G.img_channels]
     """
-    dlatents = z_to_dlatent(G=G, latents=latents, label=label, truncation_psi=1.0)
+    dlatents = z_to_dlatent(G=G, latents=latents,
+                            label=label, truncation_psi=1.0)
     dlatents = G.mapping.w_avg + (G.mapping.w_avg - dlatents) * truncation_psi
-    img = w_to_img(G=G, dlatents=dlatents, noise_mode=noise_mode)  # Let's not redo code
+    # Let's not redo code
+    img = w_to_img(G=G, dlatents=dlatents, noise_mode=noise_mode)
     return img
 
 
@@ -682,11 +722,12 @@ def get_w_from_seed(G, device: torch.device, seed: int, truncation_psi: float, n
 
 
 def get_latent_from_file(file: Union[str, os.PathLike],
-                    return_ext: bool = False,
-                    named_latent: str = 'w') -> Tuple[np.ndarray, Optional[str]]:
+                         return_ext: bool = False,
+                         named_latent: str = 'w') -> Tuple[np.ndarray, Optional[str]]:
     """Get dlatent (w) from a .npy or .npz file"""
     filename, file_extension = os.path.splitext(file)
-    assert file_extension in ['.npy', '.npz'], f'"{file}" has wrong file format! Only ".npy" or ".npz" are allowed'
+    assert file_extension in [
+        '.npy', '.npz'], f'"{file}" has wrong file format! Only ".npy" or ".npz" are allowed'
     if file_extension == '.npy':
         latent = np.load(file)
         extension = '.npy'
@@ -715,7 +756,8 @@ def make_run_dir(outdir: Union[str, os.PathLike], desc: str, dry_run: bool = Fal
     # Pick output directory.
     prev_run_dirs = []
     if os.path.isdir(outdir):  # sanity check, but click.Path() should clear this one
-        prev_run_dirs = [x for x in os.listdir(outdir) if os.path.isdir(os.path.join(outdir, x))]
+        prev_run_dirs = [x for x in os.listdir(
+            outdir) if os.path.isdir(os.path.join(outdir, x))]
     prev_run_ids = [re.match(r'^\d+', x) for x in prev_run_dirs]
     prev_run_ids = [int(x.group()) for x in prev_run_ids if x is not None]
     cur_run_id = max(prev_run_ids, default=-1) + 1  # start with 00000
